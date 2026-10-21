@@ -24,8 +24,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: Linux, os: ubuntu-24.04 }
-          - { name: macOS, os: macos-latest }
+          # The runner has both GCC and Clang, and CPM would pick Clang; each gets a job.
+          - { name: Linux (GCC), os: ubuntu-24.04, toolchain: gcc }
+          - { name: Linux (Clang), os: ubuntu-24.04, toolchain: clang }
+          - { name: macOS, os: macos-latest, toolchain: apple-clang }
+    env:
+      TOOLCHAIN: ${{ matrix.toolchain }}
     defaults:
       run:
         # A login shell, so later steps find cpm through the line install.sh adds to the profile.
@@ -41,14 +45,14 @@ jobs:
           cpm toolchain list
 
       - name: Test (strict warnings as errors)
-        run: cpm test --profile strict
+        run: cpm test --toolchain "$TOOLCHAIN" --profile strict
       - name: Test (release)
-        run: cpm test --release
+        run: cpm test --toolchain "$TOOLCHAIN" --release
       - name: Test (AddressSanitizer and UBSan)
         if: runner.os == 'Linux'
-        run: cpm test --profile sanitize
+        run: cpm test --toolchain "$TOOLCHAIN" --profile sanitize
       - name: Test a project that uses cpm-test
-        run: cpm test -C examples/consumer
+        run: cpm test --toolchain "$TOOLCHAIN" -C examples/consumer
       - name: Pack for publishing
         run: cpm publish --dry-run
 
@@ -56,7 +60,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: logs-${{ runner.os }}
+          name: logs-${{ matrix.name }}
           path: ~/.cpm/logs
           if-no-files-found: ignore
 
