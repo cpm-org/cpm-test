@@ -1,4 +1,4 @@
-#include "support/inner.hpp"
+#include "support/recording_reporter.hpp"
 
 #include <cpm/test.hpp>
 
@@ -32,7 +32,7 @@ TEST_CASE("approx and infinities") {
 TEST_CASE("a failing approx shows both values") {
     cpm::test::Registry registry;
     registry.add("t", [] { CHECK(0.5 == approx(0.25)); });
-    const Inner inner = run_inner(registry);
-    INFO("output:\n{}", inner.output);
-    CHECK(contains(inner.output, "  values: 0.5 == approx(0.25)\n"));
+    const RecordingReporter recorded = record(registry);
+    REQUIRE(recorded.failures.size() == 1);
+    CHECK(recorded.failures[0].detail == "values: 0.5 == approx(0.25)");
 }

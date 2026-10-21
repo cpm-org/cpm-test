@@ -93,6 +93,7 @@ Each `SUBCASE("name") { ... }` runs in a separate pass through its test case, al
 ### Printing your own types
 
 Failures print values like this:
+- Anything with a `cpm::test::Printer` specialisation, through it.
 - `bool`, characters and strings literally, quoted and escaped.
 - Anything with a `std::formatter`, or else an `operator<<`.
 - Ranges as `[a, b]`, showing at most 100 elements.
@@ -100,7 +101,16 @@ Failures print values like this:
 - Enums as their number, unless they have a formatter or an `operator<<`.
 - Anything else as `{?}`.
 
-To show your own type, give it a `std::formatter` specialisation or an `operator<<`. To print a value the same way yourself, call `cpm::test::to_string(value)`.
+To show your own type, give it a `std::formatter` or an `operator<<`. If it has those for other purposes and tests should show it differently, specialise `cpm::test::Printer`, which comes first:
+
+```cpp
+template <>
+struct cpm::test::Printer<Point> {
+    static std::string print(const Point& p) { return std::format("({}, {})", p.x, p.y); }
+};
+```
+
+To print a value the same way yourself, call `cpm::test::to_string(value)`.
 
 ## Running tests
 
@@ -140,6 +150,22 @@ int main(int argc, char* argv[]) {
 
 To run test cases from code, for example in tests of test tools, build a `cpm::test::Registry` and pass it to `cpm::test::run(registry, options, out)`. It returns the counts as a `cpm::test::Summary`.
 
+### Reporting elsewhere
+
+`run` tells a `cpm::test::Reporter` what happens: each failure and skip, each finished test case, and the summary at the end. `ConsoleReporter` prints them as shown above. For another format, such as JUnit XML for a CI server, implement the interface and pass your reporter to `cpm::test::run(registry, options, reporter)`:
+
+```cpp
+class JUnitReporter final : public cpm::test::Reporter {
+public:
+    void failure(const cpm::test::Failure& failure) override;           // where, message, detail, path, info
+    void skipped(const cpm::test::Skip& skip) override;
+    void test_case_finished(const cpm::test::TestCaseResult& result) override;
+    void run_finished(const cpm::test::Summary& summary) override;
+};
+```
+
+The reporter gets one call at a time, even when checks run on several threads.
+
 ## Good to know
 
 - **How REQUIRE stops:** a failed `REQUIRE`, `FAIL` or `SKIP` throws an object that doesn't derive from `std::exception`, so `catch (const std::exception&)` in the code under test lets it through. `catch (...)` would swallow it, and a `noexcept` function would end the program.
@@ -147,6 +173,19 @@ To run test cases from code, for example in tests of test tools, build a `cpm::t
 - **Macro names:** each macro also has a `CPM_TEST_` name, such as `CPM_TEST_CHECK`. Define `CPM_TEST_NO_SHORT_MACROS` before including the header to keep only those, if another library already defines `CHECK`.
 
 ## Developing
+
+Each part has one job, and the parts meet at small interfaces:
+
+| Part | Files | Job |
+|---|---|---|
+| Macros | `include/cpm/test/macros.hpp`, `detail/` | Turn `CHECK`, `SUBCASE`, `INFO` and the rest into calls on the parts below |
+| Printing | `to_string.hpp` | One rule per kind of value, tried in order; `Printer<T>` to add your own |
+| Context | `src/context.*` | The interface code inside a test case reports to; the macros never see the runner |
+| Execution | `src/test_case_execution.*` | Runs one test case pass by pass, as its context |
+| Subcases | `src/subcase_tracker.*` | Which subcases each pass enters: pure bookkeeping, tested on its own |
+| Run | `run.hpp`, `src/run.cpp`, `src/filter.*` | Chooses test cases and runs them, telling a `Reporter` |
+| Reporting | `reporter.hpp`, `src/console_reporter.cpp` | The `Reporter` interface and the console output |
+| Command line | `command_line.hpp`, `src/command_line.cpp` | Arguments, `--help`, `--list` and the exit code |
 
 ```sh
 cpm test                        # the tests, in the debug profile

@@ -31,6 +31,12 @@ struct Formatted {
 
 struct Opaque {};
 
+// Has an operator<< as well, but its Printer comes first.
+struct Printed {
+    int x;
+};
+[[maybe_unused]] std::ostream& operator<<(std::ostream& out, const Printed&) { return out << "not this"; }
+
 int function(int x) { return x; }
 
 }  // namespace
@@ -40,6 +46,11 @@ struct std::formatter<Formatted, char> : std::formatter<std::string_view, char> 
     auto format(const Formatted& f, std::format_context& ctx) const {
         return std::formatter<std::string_view, char>::format(std::format("Formatted<{}>", f.x), ctx);
     }
+};
+
+template <>
+struct cpm::test::Printer<Printed> {
+    static std::string print(const Printed& p) { return std::format("Printed#{}", p.x); }
 };
 
 TEST_CASE("basic values") {
@@ -83,6 +94,11 @@ TEST_CASE("enums print their number, unless they have a formatter or operator<<"
     CHECK(to_string(Color::red) == "0");
     CHECK(to_string(Color::green) == "5");
     CHECK(to_string(Named::one) == "Named::one");
+}
+
+TEST_CASE("a Printer specialisation comes first") {
+    CHECK(to_string(Printed{7}) == "Printed#7");
+    CHECK(to_string(std::vector<Printed>{{1}, {2}}) == "[Printed#1, Printed#2]");
 }
 
 TEST_CASE("std::formatter comes before operator<<") {

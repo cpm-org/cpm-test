@@ -10,4 +10,6 @@ The first release.
 - `INFO`, `CAPTURE`, `FAIL`, `FAIL_CHECK` and `SKIP`.
 - `approx` for floating-point numbers.
 - Values printed through `std::formatter` or `operator<<`, with ranges, pairs, tuples, optionals and enums built in.
+- `cpm::test::Printer<T>` to choose how tests show a type.
+- A `Reporter` interface for other output formats; `ConsoleReporter` prints compiler-style diagnostics.
 - Test programs that choose test cases by pattern, list them, and exit with 77 when nothing passed, as `cpm test` expects.

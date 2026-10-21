@@ -1,9 +1,13 @@
-#include "support/inner.hpp"
+// SUBCASE as test cases use it. subcase_tracker.test.cpp tests the bookkeeping on its own.
+#include "support/recording_reporter.hpp"
 
 #include <cpm/test.hpp>
 
 #include <stdexcept>
 #include <string>
+#include <vector>
+
+using Strings = std::vector<std::string>;
 
 TEST_CASE("each subcase runs in its own pass, with the code around it") {
     std::string trace;
@@ -18,10 +22,9 @@ TEST_CASE("each subcase runs in its own pass, with the code around it") {
         SUBCASE("b") trace += "b";
         trace += ".";
     });
-    const Inner inner = run_inner(registry);
-    INFO("output:\n{}", inner.output);
+    const RecordingReporter recorded = record(registry);
     CHECK(trace == "Tax.Tay.Tb.");
-    CHECK(inner.summary.passed == 1);
+    CHECK(recorded.summary.passed == 1);
 }
 
 TEST_CASE("a failing REQUIRE in a subcase ends that pass only") {
@@ -35,11 +38,10 @@ TEST_CASE("a failing REQUIRE in a subcase ends that pass only") {
         }
         SUBCASE("b") trace += "b";
     });
-    const Inner inner = run_inner(registry);
-    INFO("output:\n{}", inner.output);
+    const RecordingReporter recorded = record(registry);
     CHECK(trace == "ab");
-    CHECK(inner.summary.failed == 1);
-    CHECK(contains(inner.output, "  values: 1 == 2\n  in: \"t\" > \"a\"\n"));
+    REQUIRE(recorded.failures.size() == 1);
+    CHECK(recorded.failures[0].path == Strings{"t", "a"});
 }
 
 TEST_CASE("an exception in a nested subcase doesn't keep its siblings from running") {
@@ -55,60 +57,36 @@ TEST_CASE("an exception in a nested subcase doesn't keep its siblings from runni
         }
         SUBCASE("b") trace += "b";
     });
-    const Inner inner = run_inner(registry);
-    INFO("output:\n{}", inner.output);
+    const RecordingReporter recorded = record(registry);
     CHECK(trace == "xyb");
-    CHECK(contains(inner.output, "error: unexpected exception\n  exception: \"x failed\"\n  in: \"t\" > \"a\" > \"x\"\n"));
+    REQUIRE(recorded.failures.size() == 1);
+    CHECK(recorded.failures[0].message == "unexpected exception");
+    CHECK(recorded.failures[0].path == Strings{"t", "a", "x"});
 }
 
-TEST_CASE("a failing REQUIRE before any subcase ends the test case after one pass") {
-    int passes = 0;
-    cpm::test::Registry registry;
-    registry.add("t", [&] {
-        ++passes;
-        REQUIRE(false);
-        SUBCASE("a") {}
-        SUBCASE("b") {}
-    });
-    const Inner inner = run_inner(registry);
-    CHECK(passes == 1);
-    CHECK(inner.summary.failed == 1);
-}
-
-TEST_CASE("subcases can have names made at run time") {
-    std::string trace;
-    cpm::test::Registry registry;
-    registry.add("t", [&] {
-        for (int i = 0; i < 3; ++i) {
-            SUBCASE("case " + std::to_string(i)) trace += std::to_string(i);
-        }
-    });
-    const Inner inner = run_inner(registry);
-    CHECK(trace == "012");
-}
-
-TEST_CASE("failures in subcases name the whole path") {
+TEST_CASE("failures in subcases report the whole path") {
     cpm::test::Registry registry;
     registry.add("outer", [] {
         SUBCASE("middle") {
             SUBCASE("inner") CHECK(1 == 0);
         }
     });
-    const Inner inner = run_inner(registry);
-    CHECK(contains(inner.output, "  in: \"outer\" > \"middle\" > \"inner\"\n"));
+    const RecordingReporter recorded = record(registry);
+    REQUIRE(recorded.failures.size() == 1);
+    CHECK(recorded.failures[0].path == Strings{"outer", "middle", "inner"});
 }
 
 // The same through TEST_CASE and the library's main(), as a user would write it.
 TEST_CASE("a string grows and shrinks") {
-    std::string v = "ab";
-    REQUIRE(v.size() == 2);
+    std::string s = "ab";
+    REQUIRE(s.size() == 2);
     SUBCASE("grows") {
-        v += 'c';
-        CHECK(v == "abc");
+        s += 'c';
+        CHECK(s == "abc");
     }
     SUBCASE("shrinks") {
-        v.pop_back();
-        CHECK(v == "a");
+        s.pop_back();
+        CHECK(s == "a");
     }
-    CHECK(v.size() != 2);
+    CHECK(s.size() != 2);
 }
