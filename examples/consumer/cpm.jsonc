@@ -1,0 +1,12 @@
+// A project that tests itself with cpm-test, the way a user's would. CI runs `cpm test` here, so it also checks that
+// test programs get their main() from the library.
+{
+  "name": "consumer",
+  "version": "0.1.0",
+  "std": "c++20",
+  "type": "static-lib",
+  "devDependencies": {
+    // A user's project would have "cpm-test": "^0.1.0" from `cpm install -D cpm-test`.
+    "cpm-test": "file:../.."
+  }
+}

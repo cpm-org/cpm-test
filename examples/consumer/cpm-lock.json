@@ -1,0 +1,25 @@
+{
+  "lockfileVersion": 1,
+  "importers": {
+    ".": {
+      "dependencies": {},
+      "devDependencies": {
+        "cpm-test": {
+          "specifier": "file:../..",
+          "version": "0.1.0"
+        }
+      }
+    }
+  },
+  "packages": {
+    "cpm-test@0.1.0": {
+      "dev": true,
+      "resolution": {
+        "path": "../../",
+        "type": "path"
+      },
+      "std": "c++20",
+      "type": "static-lib"
+    }
+  }
+}

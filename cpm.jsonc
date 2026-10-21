@@ -1,0 +1,22 @@
+// The package manifest: JSON with comments and trailing commas (JSONC).
+// Reference: docs/spec/manifest.md in the CPM repository.
+{
+  "name": "cpm-test",
+  "version": "0.1.0",
+  "description": "A unit-test framework for C++20: test cases, subcases and checks that print the values they compared",
+  "license": "MIT",
+  "repository": "https://github.com/cpm-org/cpm-test",
+
+  // The oldest standard a project using cpm-test may have.
+  "std": "c++20",
+
+  // A static library: its src/default_main.cpp gives test programs a main() when they don't define one.
+  "type": "static-lib",
+
+  "profiles": {
+    // What CI builds with, so the header stays clean for projects that use every warning CPM knows.
+    "strict": { "inherits": "debug", "warnings": "strict", "werror": true },
+    // AddressSanitizer and UBSan, on the platforms that have them (CI runs it on Linux).
+    "sanitize": { "inherits": "debug", "sanitizers": ["address", "undefined"] }
+  }
+}
